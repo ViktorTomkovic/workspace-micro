@@ -78,9 +78,9 @@ void setup(void) {
 }
 
 void loop(void) {
-  debugOutput();
+  //debugOutput();
   if (!isDataValid) {
-    DigiKeyboard.delay(3*LAG);
+    DigiKeyboard.delay(LAG);
     return;
   }
   // We have data in IR buffer (dataFromIR)  
@@ -179,6 +179,7 @@ void debugOutput() {
   printInt(state);
   // DigiKeyboard.print("\t");
   DigiKeyboard.print("\n");
+  DigiKeyboard.delay(3*LAG);
 }
 
 /* Read the IR code with NEC protocol. */
