@@ -2,6 +2,9 @@
 USBKeyboard-input.txt
 # Projects built by hand
 build/
+# Ignore swp files
+*.kate-swp
+*.swp
 
 # Prerequisites
 *.d
