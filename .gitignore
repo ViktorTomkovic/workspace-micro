@@ -1,3 +1,8 @@
+# File to store input data via USB Keyboard
+USBKeyboard-input.txt
+# Projects built by hand
+build/
+
 # Prerequisites
 *.d
 
