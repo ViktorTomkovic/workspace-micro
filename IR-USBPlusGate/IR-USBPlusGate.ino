@@ -37,25 +37,26 @@ static const uint8_t BUTTON_DEPRESSED = 2;
 static const uint8_t BIT_RECEIVED = 3;
 static const uint8_t NOISE = 5;
 
-uint8_t state = STATE_STOLOVEPC;
+uint8_t state = STATE_NOTEBOOK;
 bool changedState = false;
 
 uint8_t dataFromIR = 0;
 
 uint8_t irState = 0;
-uint8_t signalBit = 0;
-uint8_t bitValue = 0;
+uint8_t bitPosition = 0;
 uint8_t irDeviceId = 0;
 uint8_t irDeviceIdInverted = 0;
 uint8_t irData = 0;
 uint8_t irDataInverted = 0;
+uint8_t irCounter = 0;
+uint8_t irThrowawayCounter = 0;
 bool isDataValid = false;
-bool isSignalParsed = false;
+bool isReadingActive = false;
 
 uint32_t timeOldUs = 0;
 uint32_t timeIRUs = 0;
 
-uint32_t LastButtonPressedtimeMs = 0;
+uint32_t lastButtonPressedtimeMs = 0;
 uint32_t timeNowMs = 0;
 
 uint32_t interruptCounter = 0;
@@ -87,13 +88,13 @@ void loop(void) {
   // DigiKeyboard.sendKeyStroke(0);
   // DigiKeyboard.delay(10);
   switch (dataFromIR) { // Assign functions to the buttons
-    case PLAY_BUTTON:   DigiKeyboard.print(" ");break;
-    case PAUSE_BUTTON:  DigiKeyboard.print(" ");break;
-    case PREV_CHAPTER:  DigiKeyboard.print("p");break;
-    case NEXT_CHAPTER:  DigiKeyboard.print("n");break;
-    case STOP_BUTTON:   DigiKeyboard.print("s");break;
-    case FAST_BACKWARD: DigiKeyboard.print("h");break;
-    case FAST_FORWARD:  DigiKeyboard.print("g");break;
+    case PLAY_BUTTON:   press(" ");break;
+    case PAUSE_BUTTON:  press(" ");break;
+    case PREV_CHAPTER:  press("p");break;
+    case NEXT_CHAPTER:  press("n");break;
+    case STOP_BUTTON:   press("s");break;
+    case FAST_BACKWARD: press("h");break;
+    case FAST_FORWARD:  press("g");break;
     case SCENE_DVD:     /*printState(state);DigiKeyboard.println(" DVD ");*/changeState(COMMAND_TOSTOLOVEPC);/*printState(state);*/break;
     case SCENE_TV:      /*printState(state);DigiKeyboard.println("  TV ");*/changeState(COMMAND_TONOTEBOOK); /*printState(state);*/break;
     case SCENE_NET:     /*printState(state);DigiKeyboard.println(" NET ");*/changeState(COMMAND_TOSTOLOVEPC);/*printState(state);*/break;
@@ -101,6 +102,12 @@ void loop(void) {
     default:            break;
   }
   isDataValid = false;
+  irCounter = 0;
+}
+
+void press(char* str) {
+  DigiKeyboard.print(str);
+  lightTheLed(300);
 }
 
 void changeState(uint8_t command) {
@@ -108,25 +115,27 @@ void changeState(uint8_t command) {
   if (command == COMMAND_TOSTOLOVEPC) {
     uint8_t newState = STATE_STOLOVEPC_AWAITDOUBLECLICK;
     switch (state) {
-    case STATE_STOLOVEPC:                  break;
-    case STATE_STOLOVEPC_AWAITDOUBLECLICK: newState = STATE_STOLOVEPC; pushTheButton();break;
-    case STATE_NOTEBOOK:                   pushTheButton();break;
-    case STATE_NOTEBOOK_AWAITDOUBLECLICK:  pushTheButton();break;
-    default:                               break;
+      case STATE_STOLOVEPC:                  break;
+      case STATE_STOLOVEPC_AWAITDOUBLECLICK: newState = STATE_STOLOVEPC;pushTheButtonDouble();break;
+      case STATE_NOTEBOOK:                   pushTheButtonSingle();break;
+      case STATE_NOTEBOOK_AWAITDOUBLECLICK:  pushTheButtonSingle();break;
+    default:                                 break;
     }
     state = newState;
   }
   else if (command == COMMAND_TONOTEBOOK) {
     uint8_t newState = STATE_NOTEBOOK_AWAITDOUBLECLICK;
     switch (state) {
-      case STATE_STOLOVEPC:                  pushTheButton();break;
-      case STATE_STOLOVEPC_AWAITDOUBLECLICK: pushTheButton();break;
+      case STATE_STOLOVEPC:                  pushTheButtonSingle();break;
+      case STATE_STOLOVEPC_AWAITDOUBLECLICK: pushTheButtonSingle();break;
       case STATE_NOTEBOOK:                   break;
-      case STATE_NOTEBOOK_AWAITDOUBLECLICK:  newState = STATE_NOTEBOOK;pushTheButton();break;
+      case STATE_NOTEBOOK_AWAITDOUBLECLICK:  newState = STATE_NOTEBOOK;pushTheButtonDouble();break;
     default:                                 break;
     }
     state = newState;
   } else {
+    lightTheLed(1500);
+    DigiKeyboard.delay(500);
     lightTheLed(1500);
   }
 }
@@ -136,12 +145,12 @@ void changeState(uint8_t command) {
  */
 void updateState() {
   timeNowMs = millis();
-  uint32_t deltaMs = timeNowMs - LastButtonPressedtimeMs;
+  uint32_t deltaMs = timeNowMs - lastButtonPressedtimeMs;
   if (deltaMs > DOUBLECLICK_TIMEOUT_MS) {
     if (state == STATE_NOTEBOOK_AWAITDOUBLECLICK) { state = STATE_NOTEBOOK; }
     if (state == STATE_STOLOVEPC_AWAITDOUBLECLICK) { state = STATE_STOLOVEPC; }
   }
-  LastButtonPressedtimeMs = timeNowMs;
+  lastButtonPressedtimeMs = timeNowMs;
   // printState(state);
 }
 
@@ -157,8 +166,24 @@ void printState(uint8_t state) {
 
 void pushTheButton() {
   digitalWrite(GATE_PIN, HIGH);
-  DigiKeyboard.delay(GATE_DELAY_MS);
+  lightTheLed(GATE_DELAY_MS);
   digitalWrite(GATE_PIN, LOW);
+}
+
+void pushTheButtonSingle() {
+  pushTheButton();
+  DigiKeyboard.delay(100);
+  lightTheLed(450);
+  DigiKeyboard.delay(100);
+}
+
+void pushTheButtonDouble() {
+  pushTheButton();
+  DigiKeyboard.delay(100);
+  lightTheLed(150);
+  DigiKeyboard.delay(100);
+  lightTheLed(150);
+  DigiKeyboard.delay(100);
 }
 
 void lightTheLed(uint16_t timeMs) {
@@ -170,16 +195,31 @@ void lightTheLed(uint16_t timeMs) {
 void debugOutput() {
   lightTheLed(500);
   DigiKeyboard.print("");
-  printInt(millis());
+  DigiKeyboard.print(uintToStr(millis()));
   DigiKeyboard.print("\t");
-  printInt(isDataValid);
+  DigiKeyboard.print(uintToStr(isDataValid));
   DigiKeyboard.print("\t");
-  printInt(dataFromIR);
+  DigiKeyboard.print(uintToStr(dataFromIR));
   DigiKeyboard.print("\t");
-  printInt(state);
+  DigiKeyboard.print(uintToStr(state));
+  DigiKeyboard.print("\t");
+  DigiKeyboard.print(uintToStr(irCounter));
+  DigiKeyboard.print("\t");
+  DigiKeyboard.print(uintToStr(irThrowawayCounter));
   // DigiKeyboard.print("\t");
   DigiKeyboard.print("\n");
   DigiKeyboard.delay(3*LAG);
+}
+
+char* uintToStr(uint32_t value) {
+  if (value == 0) {
+    return "0";
+  }
+  static char buffer[32] = {0};
+  int i = 30;
+  for(; value && i ; --i, value /= 10)
+  buffer[i] = "0123456789abcdef"[value % 10];
+  return &buffer[i+1];
 }
 
 /* Read the IR code with NEC protocol. */
@@ -188,74 +228,40 @@ void IRNECRead(void) {
     return;
   }
   timeIRUs = micros();
-  uint32_t timeDelta = timeIRUs - timeOldUs;
+  uint32_t timeDeltaBig = timeIRUs - timeOldUs;
   timeOldUs = timeIRUs;
-  if (timeDelta <= 950) {
-    isSignalParsed = false;
-    signalBit = 0;
-  } else if (timeDelta <= 1500) {
-    // 1125 +- 158 -> 967, 1283, 1441
-    irState = BIT_RECEIVED; // read bit "0"
-    bitValue = 0;
-  } else if (timeDelta <= 2600) {
-    // 2250 +- 158 -> 2097, 2408, 2564
-    irState = BIT_RECEIVED; // read bit "1"
-    bitValue = 1;
-  } else if (timeDelta <= 10000) {
-    isSignalParsed = false;
-    signalBit = 0;
-  } else if (timeDelta <= 12100) {
-    // 11250
-    irState = BUTTON_DEPRESSED; // signal repeated
-  } else if (timeDelta <= 14000) {
-    // 13000
-    isSignalParsed = false;
-    signalBit = 0;
-    irState = TRANSMIT_STARTED;
-    irDeviceId = 0;
-    irDeviceIdInverted = 0;
-    irData = 0;
-    irDataInverted = 0;
-  } else {
-    isSignalParsed = false;
-    signalBit = 0;
-  }    
-
-  if (irState == BIT_RECEIVED) {
-    if (signalBit < 8) {
-      irDeviceId |= bitValue;
-      if (signalBit < 7) irDeviceId <<= 1;
-      signalBit++;
-    } else if (signalBit < 16) {
-      irDeviceIdInverted |= bitValue;
-      if (signalBit < 15) irDeviceIdInverted <<= 1;
-      signalBit++;
-    } else if (signalBit < 24) {
-      irData |= bitValue;
-      if (signalBit < 23) irData <<= 1;
-      signalBit++;
-    } else if (signalBit < 32) {
-      irDataInverted |= bitValue;
-      if (signalBit < 31) {
-        irDataInverted <<= 1;
-      } else {
-        dataFromIR = irData;
-        isSignalParsed = true;
-        isDataValid = true;
-      }
-      signalBit++;
+  
+  if (timeDeltaBig > 14000) {
+    isReadingActive = false;
+    return;
+  }
+  
+  //uint16_t timeDelta = (uint16_t) timeDeltaBig;
+  uint32_t timeDelta = timeDeltaBig;
+  
+  if (timeDelta <= 2600) {
+    if (!isReadingActive || timeDelta <= 950) {
+      isReadingActive = false;
+      return;
     }
-  } else if (irState == BUTTON_DEPRESSED) {
-    if (isSignalParsed) {
+
+    // read bit
+    irCounter++;
+    uint8_t bitValue = (timeDelta > 1500) ? 1 : 0;
+    irData <<= 1;
+    irData |= bitValue;
+    
+    if (irCounter == 24) {
+      dataFromIR = irData;
+      isReadingActive = false;
       isDataValid = true;
     }
-  }
-}
-
-void printInt(uint32_t value) {
-  char buffer[20]; //this array will hold the ASCII codes generated by the function
-
-  itoa(value, buffer, DEC);
-
-  DigiKeyboard.print(buffer);
+  } else if (timeDelta <= 12100) {
+    isReadingActive = false;
+  } else if (timeDelta <= 14000) {
+    isReadingActive = true;
+    irData = 0;
+    irCounter = 0;
+  } 
+  
 }

@@ -67,6 +67,7 @@ build:
 	$(CC) $(A_FLAGS) $(DS_KEYBOARD)usbdrvasm.S -o $(OUTPUT_PATH)libraries/DigisparkKeyboard/usbdrvasm.S.o
 	$(CC) -Os -Wl,--gc-sections -mmcu=attiny85 -o $(OUTPUT_PATH)$(MAIN_SKETCH).elf $(OUTPUT_PATH)$(MAIN_SKETCH).cpp.o $(OUTPUT_PATH)libraries/DigisparkKeyboard/usbdrvasm.S.o $(OUTPUT_PATH)libraries/DigisparkKeyboard/oddebug.c.o $(OUTPUT_PATH)libraries/DigisparkKeyboard/osccal.c.o $(OUTPUT_PATH)libraries/DigisparkKeyboard/usbdrv.c.o $(OUTPUT_PATH)core/pins_arduino.c.o $(OUTPUT_PATH)cache/core/core_digistump_avr_digispark-tiny_0b3a87ccc0b70a8dec8f52b062d1baa7.a -L$(OUTPUT_PATH) -lm
 	$(OBJ_DUMP) -S $(OUTPUT_PATH)$(MAIN_SKETCH).elf > $(OUTPUT_PATH)$(MAIN_SKETCH).S
+	$(OBJ_DUMP) -d $(OUTPUT_PATH)$(MAIN_SKETCH).elf | awk -v RS= '/^[[:xdigit:]]+ <_Z9IRNECReadv>/' | wc -l > $(OUTPUT_PATH)wc.txt
 
 rmdir:
 	rm -rf $(OUTPUT_PATH)
